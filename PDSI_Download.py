@@ -1,140 +1,74 @@
-#PDSI_Download.py
+# PDSI_Download.py
 
+from netCDF4 import Dataset
+import matplotlib.pyplot as plt
 import numpy as np
-import datetime
 import wget
-import re
+import os
 
-def years(start, end, flag):
-    """Download data from a specified year range
+class DateRange():
+    def __init__(self, start_year, end_year, month_range):
+        self.start_year = start_year
+        self.end_year = end_year
+        self.month_range = month_range
 
-    Keyword Args:
-    start -- First year in range of years
-    end -- Final year in range of years
-    flag -- Flag to determine whether user wants to DL data or compute PDSI on data
-    """
-    def month_check(year):
-        """Compute the current month
-
-        Keyword Args:
-        year -- Year to check whether or not user wants data from the current year
-        """
-        date = str(datetime.datetime.now())
-        date_arr = re.split("-", date)
-        current_year = int(date_arr[0])
-        current_month = date_arr[1]
-        if current_year == year:
-            if current_month[0] == 0:
-                return int(current_month[-1])
-            else:
-                return int(current_month)
+def PDSI(date_range, flag):
+    def get_date_range(date_range):
+        #Specify months to download
+        if date_range.month_range == None:
+            months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         else:
-            return 0
+            months = date_range.month_range
 
-    def download_data(start, end):
-        """Downloads PDSI data in netCDF format in a range of years
-
-        Keyword Args:
-        start -- First year in range of years
-        end -- Final year in range of years
-        """
-        year = start
-        year_range = (end - start) + 1
-        number_of_months = year_range * 12
-        current_month = month_check(end)
-
-        #If user is trying to get data from current year, factor our months that have yet to occur + 1
-        if current_month != 0:
-            number_of_months -= (13 - current_month)
-
-        for i in range(0, number_of_months):
-            month = (i % 12) + 1
-            if i > 0 and i % 12 == 0:
-                year += 1
-            print("Month: %i, Year: %i" % (month, year))
-            URL = "http://www.wrcc.dri.edu/wwdt/data/PRISM/spi1/spi1_" + str(year) + "_" + str(month) + "_PRISM.nc"
-            wget.download(URL)
-
-
-    download_data(start, end)
-
-def year(year, flag):
-    """Download data from a specified year
-
-        Keyword Args:
-        year -- Year user wants data from
-        flag -- Flag to determine whether user wants to DL data or compute PDSI on data
-        """
-    def month_check(year):
-        """Compute the current month
-
-        Keyword Args:
-        year -- Year to check whether or not user wants data from the current year
-        """
-        date = str(datetime.datetime.now())
-        date_arr = re.split("-", date)
-        current_year = int(date_arr[0])
-        current_month = date_arr[1]
-        if current_year == year:
-            if current_month[0] == 0:
-                return int(current_month[-1]) - 1
-            else:
-                return int(current_month) - 1
+        #Specify years to download
+        years = []
+        if date_range.start_year == date_range.end_year:
+            years.append(date_range.end_year)
         else:
-            return 12
+            for year in range(date_range.start_year, date_range.end_year + 1):
+                years.append(year)
 
+        #Return list of months and list of years
+        return months, years
 
-    def download_data(year):
-        """Downloads PDSI data in netCDF format from a specified year
+    def download(date_range):
+        months, years = get_date_range(date_range)
+        num_months = len(years) * len(months)
+        year_iter = -1
 
-        Keyword Args:
-        year -- Year user wants data from
-        """
-        for i in range(0, month_check(year)):
-            month = (i % 12) + 1
+        new_dir = str(os.getcwd()) + "/PDSI_Data"
+        if not os.path.exists(new_dir):
+            os.mkdir(new_dir)
+            os.chdir(new_dir)
+        else:
+            os.chdir(new_dir)
+
+        for i in range(0, num_months):
+            month = months[i % len(months)]
+
+            if i % len(months) == 0:
+                year_iter += 1
+                year = years[year_iter]
+
             print("Month: %i, Year: %i" % (month, year))
             URL = "http://www.wrcc.dri.edu/wwdt/data/PRISM/spi1/spi1_" + str(year) + "_" + str(month) + "_PRISM.nc"
-            wget.download(URL)
+            #wget.download(URL)
 
-    download_data(year)
+    def visualize():
+        cwd = str(os.getcwd())
+        os.chdir(cwd + "/PDSI_Data")
+        files = os.listdir()
+        for i in range(0, len(files)):
+            file = Dataset(files[i], "r")
+            print(file)
+            print(file.variables["longitude"])
+            print(file.variables["latitude"])
+            print(file.variables["day"])
+            print(file.variables["data"])
 
-def months(month_range, start, end, flag):
-    """Download data from a specified year range
-
-    Keyword Args:
-    month_range -- Array of months (numeric, i.e. January = 1) user wants data from
-    start -- First year in range of years
-    end -- Final year in range of years
-    flag -- Flag to determine whether user wants to DL data or compute PDSI on data
-    """
-    def download_data(month_range, start, end):
-        """Downloads PDSI data in netCDF format from specified months and years
-
-        Keyword Args:
-        month_range -- Array of months (numeric, i.e. January = 1) user wants data from
-        start -- First year in range of years
-        end -- Final year in range of years
-        """
-        year = start
-        years_in_range = (end - start) + 1
-        months_in_range = len(month_range)
-        number_of_months = months_in_range * years_in_range
-
-        for i in range(0, number_of_months):
-            month = month_range[i % months_in_range]
-            if i > 0 and i % months_in_range == 0:
-                year += 1
-            print("Month: %i, Year: %i" % (month, year))
-            URL = "http://www.wrcc.dri.edu/wwdt/data/PRISM/spi1/spi1_" + str(year) + "_" + str(month) + "_PRISM.nc"
-            wget.download(URL)
-
-    download_data(month_range, start, end)
-
-#years(2010, 2011, "z")
-#year(2015, "z")
-months([1, 2, 5], 2010, 2011, "z")
+    #download(date_range)
+    visualize()
 
 
-
-
-
+dates = DateRange(2012, 2012, [1])
+PDSI(dates, "x")
